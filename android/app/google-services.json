@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "886218321090",
+    "project_id": "lockfeed-97298",
+    "storage_bucket": "lockfeed-97298.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:886218321090:android:6d02ded5d3953f1c775f5b",
+        "android_client_info": {
+          "package_name": "com.android.application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcgLGNQ828kw20soU4j2TzjC_-o_jDtUA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
