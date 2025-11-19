@@ -4,4 +4,5 @@ class StorageKeys {
   static const String keywords = 'keywords';
   static const String credits = 'credits';
   static const String settings = 'settings';
+  static const String exerciseSessions = 'exercise_sessions';
 }

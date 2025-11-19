@@ -12,8 +12,10 @@ class FeedLockApp extends StatelessWidget {
     return MaterialApp(
       title: 'Feed Lock',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
       debugShowCheckedModeBanner: false,
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
       onUnknownRoute: (settings) =>
           MaterialPageRoute<void>(builder: (_) => const HomeScreen()),

@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Camera permission for exercise tracking -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Internet permission for Firebase and Instagram feed -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Network state permission -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
     <application
         android:label="feed_lock"
         android:name="${applicationName}"
