@@ -6,4 +6,5 @@ class ApiConstants {
   static const String exerciseComplete = '/api/exercise/complete';
   static const String filterClassify = '/api/filter/classify';
   static const String summaryGenerate = '/api/summary/generate';
+  static const String niches = '/api/niches';
 }

@@ -12,10 +12,18 @@ class KeywordManagerScreen extends StatefulWidget {
   State<KeywordManagerScreen> createState() => _KeywordManagerScreenState();
 }
 
-class _KeywordManagerScreenState extends State<KeywordManagerScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+class _KeywordManagerScreenState extends State<KeywordManagerScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final TextEditingController _controller = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -31,6 +39,7 @@ class _KeywordManagerScreenState extends State<KeywordManagerScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -40,46 +49,34 @@ class _KeywordManagerScreenState extends State<KeywordManagerScreen> {
     }
     final KeywordProvider provider = context.read<KeywordProvider>();
     final String value = _controller.text.trim();
+    final bool isPositive = _tabController.index == 0;
 
-    if (provider.keywords.length >= provider.keywordLimit) {
-      context.showSnackBar('You have reached your keyword limit.');
-      return;
-    }
-
-    provider.addKeyword(value);
+    // TODO: Add limit check if needed
+    
+    provider.addKeyword(value, isPositive: isPositive);
     _controller.clear();
     context.hideKeyboard();
-    context.showSnackBar('Keyword added');
+    context.showSnackBar('${isPositive ? "Allowed" : "Blocked"} keyword added');
   }
 
   @override
   Widget build(BuildContext context) {
-    final KeywordProvider provider = context.watch<KeywordProvider>();
-
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text('Keywords'),
-            Text(
-              '${provider.keywords.length}/${provider.keywordLimit} used',
-              style: const TextStyle(fontSize: 12),
-            ),
+        title: const Text('Manage Keywords'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const <Widget>[
+            Tab(text: 'Allowed (Positive)'),
+            Tab(text: 'Blocked (Negative)'),
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Add keywords to prioritize posts that matter to you. '
-              'On the free tier you can add up to ${provider.keywordLimit} keyword(s).',
-            ),
-            const SizedBox(height: 16),
-            Form(
+      body: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
               key: _formKey,
               child: Row(
                 children: <Widget>[
@@ -88,10 +85,11 @@ class _KeywordManagerScreenState extends State<KeywordManagerScreen> {
                       controller: _controller,
                       decoration: const InputDecoration(
                         labelText: 'New keyword',
+                        hintText: 'e.g., fitness, politics',
                       ),
                       validator: (String? value) {
                         if (!Validators.isValidKeyword(value)) {
-                          return 'Only letters, numbers and spaces (max 100 chars).';
+                          return 'Invalid keyword format.';
                         }
                         return null;
                       },
@@ -99,44 +97,66 @@ class _KeywordManagerScreenState extends State<KeywordManagerScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: provider.keywords.length >= provider.keywordLimit
-                        ? null
-                        : _addKeyword,
+                    onPressed: _addKeyword,
                     child: const Text('Add'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (provider.isLoading && provider.keywords.isEmpty)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (provider.keywords.isEmpty)
-              const Expanded(
-                child: Center(
-                  child: Text('No keywords yet. Add your first keyword above.'),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  itemCount: provider.keywords.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final String keyword = provider.keywords[index];
-                    return ListTile(
-                      title: Text(keyword),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () {
-                          provider.removeKeyword(keyword);
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: <Widget>[
+                _KeywordList(isPositive: true),
+                _KeywordList(isPositive: false),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _KeywordList extends StatelessWidget {
+  const _KeywordList({required this.isPositive});
+
+  final bool isPositive;
+
+  @override
+  Widget build(BuildContext context) {
+    final KeywordProvider provider = context.watch<KeywordProvider>();
+    final List<String> keywords =
+        isPositive ? provider.positiveKeywords : provider.negativeKeywords;
+
+    if (provider.isLoading && keywords.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (keywords.isEmpty) {
+      return Center(
+        child: Text(
+          'No ${isPositive ? "allowed" : "blocked"} keywords yet.',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: keywords.length,
+      itemBuilder: (BuildContext context, int index) {
+        final String keyword = keywords[index];
+        return ListTile(
+          title: Text(keyword),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              provider.removeKeyword(keyword, isPositive: isPositive);
+            },
+          ),
+        );
+      },
     );
   }
 }

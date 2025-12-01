@@ -95,109 +95,111 @@ class _InstagramFeedScreenState extends State<InstagramFeedScreen> {
       creditProvider.startCountdown();
     }
 
-    return Stack(
-      children: <Widget>[
-        // Feed
-        if (hasCredits)
-          ListView.builder(
-            itemCount: _posts.length,
-            itemBuilder: (BuildContext context, int index) {
-              final post = _posts[index];
-              return _buildPostCard(context, post);
-            },
-          )
-        else
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
+    return SafeArea(
+      child: Stack(
+        children: <Widget>[
+          // Feed
+          if (hasCredits)
+            ListView.builder(
+              itemCount: _posts.length,
+              itemBuilder: (BuildContext context, int index) {
+                final post = _posts[index];
+                return _buildPostCard(context, post);
+              },
+            )
+          else
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF13ec6a).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock,
+                        color: Color(0xFF13ec6a),
+                        size: 64,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'No credits left',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Complete exercises to earn more scroll time',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        DefaultTabController.of(context).animateTo(2);
+                      },
+                      icon: const Icon(Icons.fitness_center),
+                      label: const Text('Go to Exercise'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF13ec6a),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          // Credits overlay
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF13ec6a).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.lock,
-                      color: Color(0xFF13ec6a),
-                      size: 64,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'No credits left',
-                    style: TextStyle(
+                  const Icon(Icons.timer, color: Color(0xFF13ec6a), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatCredits(creditProvider.totalCredits),
+                    style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Complete exercises to earn more scroll time',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      DefaultTabController.of(context).animateTo(2);
-                    },
-                    icon: const Icon(Icons.fitness_center),
-                    label: const Text('Go to Exercise'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF13ec6a),
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-        // Credits overlay
-        Positioned(
-          top: 16,
-          left: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.timer, color: Color(0xFF13ec6a), size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  formatCredits(creditProvider.totalCredits),
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

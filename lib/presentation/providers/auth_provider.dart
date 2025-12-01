@@ -1,18 +1,22 @@
 import 'package:flutter/foundation.dart';
-
-import '../../data/repositories/auth_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/user_entity.dart';
 
 enum AuthStatus { initial, authenticated, unauthenticated, loading }
 
 class AuthProvider extends ChangeNotifier {
-  AuthProvider({required this.authRepository});
+  AuthProvider() {
+    _checkAuthStatus();
+  }
 
-  final AuthRepository authRepository;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   UserEntity? currentUser;
   AuthStatus authStatus = AuthStatus.initial;
   String? errorMessage;
+
+  // Get the current token for API calls if needed (though we are moving to Firestore)
+  String? get token => null; // Not needed for Firestore direct access
 
   Future<void> login(String email, String password) async {
     authStatus = AuthStatus.loading;
@@ -20,9 +24,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final UserEntity user = await authRepository.login(email, password);
-      currentUser = user;
+      final UserCredential credential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      _updateUser(credential.user);
       authStatus = AuthStatus.authenticated;
+    } on FirebaseAuthException catch (e) {
+      errorMessage = e.message;
+      authStatus = AuthStatus.unauthenticated;
     } catch (e) {
       errorMessage = e.toString();
       authStatus = AuthStatus.unauthenticated;
@@ -37,13 +47,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final UserEntity user = await authRepository.register(
-        email,
-        password,
-        name,
+      final UserCredential credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
       );
-      currentUser = user;
+      
+      if (name != null && credential.user != null) {
+        await credential.user!.updateDisplayName(name);
+        await credential.user!.reload();
+        _updateUser(_firebaseAuth.currentUser);
+      } else {
+        _updateUser(credential.user);
+      }
+      
       authStatus = AuthStatus.authenticated;
+    } on FirebaseAuthException catch (e) {
+      errorMessage = e.message;
+      authStatus = AuthStatus.unauthenticated;
     } catch (e) {
       errorMessage = e.toString();
       authStatus = AuthStatus.unauthenticated;
@@ -53,18 +73,31 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await authRepository.logout();
+    await _firebaseAuth.signOut();
     currentUser = null;
     authStatus = AuthStatus.unauthenticated;
     notifyListeners();
   }
 
-  Future<void> checkAuthStatus() async {
-    final UserEntity? user = await authRepository.getCurrentUser();
-    currentUser = user;
-    authStatus = user == null
-        ? AuthStatus.unauthenticated
-        : AuthStatus.authenticated;
-    notifyListeners();
+  void _checkAuthStatus() {
+    _firebaseAuth.authStateChanges().listen((User? user) {
+      _updateUser(user);
+      authStatus = user == null
+          ? AuthStatus.unauthenticated
+          : AuthStatus.authenticated;
+      notifyListeners();
+    });
+  }
+
+  void _updateUser(User? firebaseUser) {
+    if (firebaseUser == null) {
+      currentUser = null;
+    } else {
+      currentUser = UserEntity(
+        id: firebaseUser.uid,
+        email: firebaseUser.email ?? '',
+        name: firebaseUser.displayName,
+      );
+    }
   }
 }

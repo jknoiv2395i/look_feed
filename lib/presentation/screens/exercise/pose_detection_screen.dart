@@ -1,26 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
 
 import '../../providers/credit_provider.dart';
 import '../../../domain/entities/exercise_entity.dart';
-
-// Keypoint model for pose detection
-class Keypoint {
-  final String name;
-  final double x;
-  final double y;
-  final double confidence;
-  final bool isCorrectForm;
-
-  Keypoint({
-    required this.name,
-    required this.x,
-    required this.y,
-    required this.confidence,
-    this.isCorrectForm = true,
-  });
-}
+import 'exercise_state_machines.dart';
 
 class PoseDetectionScreen extends StatefulWidget {
   final ExerciseType exerciseType;
@@ -35,15 +21,22 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
   late CameraController _cameraController;
   bool _isCameraInitialized = false;
   bool _isSessionActive = false;
-  int _repCount = 0;
   late Stopwatch _stopwatch;
   String _formFeedback = '';
   List<Keypoint> _keypoints = [];
+  late Timer _timerUpdate;
+
+  late PushupStateMachine _pushupMachine;
+  late SquatStateMachine _squatMachine;
+  late JumpingJackStateMachine _jumpingJackMachine;
 
   @override
   void initState() {
     super.initState();
     _stopwatch = Stopwatch();
+    _pushupMachine = PushupStateMachine();
+    _squatMachine = SquatStateMachine();
+    _jumpingJackMachine = JumpingJackStateMachine();
     _initializeCamera();
   }
 
@@ -81,24 +74,52 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
   void _startSession() {
     setState(() {
       _isSessionActive = true;
-      _repCount = 0;
     });
     _stopwatch.start();
+
+    // Reset state machines
+    _pushupMachine = PushupStateMachine();
+    _squatMachine = SquatStateMachine();
+    _jumpingJackMachine = JumpingJackStateMachine();
+
+    // Update UI every 100ms to show timer
+    _timerUpdate = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (_isSessionActive && mounted) {
+        setState(() {});
+      }
+    });
+
     _simulatePoseDetection();
   }
 
   void _stopSession() {
     _stopwatch.stop();
+    _timerUpdate.cancel();
     final creditProvider = context.read<CreditProvider>();
 
-    final creditsEarned = (_repCount ~/ 10).clamp(0, 50);
+    int repCount = 0;
+    switch (widget.exerciseType) {
+      case ExerciseType.pushups:
+        repCount = _pushupMachine.repCount;
+        break;
+      case ExerciseType.squats:
+        repCount = _squatMachine.repCount;
+        break;
+      case ExerciseType.jumpingJacks:
+        repCount = _jumpingJackMachine.repCount;
+        break;
+      case ExerciseType.custom:
+        repCount = 0;
+    }
+
+    final creditsEarned = (repCount ~/ 10).clamp(0, 50);
     creditProvider.addCredits(creditsEarned);
 
     setState(() {
       _isSessionActive = false;
     });
 
-    _showSessionCompleteDialog();
+    _showSessionCompleteDialog(repCount, creditsEarned);
   }
 
   void _simulatePoseDetection() {
@@ -115,8 +136,6 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
   }
 
   void _generateMockKeypoints() {
-    // Generate mock keypoints for visualization
-    // In production, this would use ML Kit pose detection
     final random = DateTime.now().millisecond % 100;
 
     _keypoints = [
@@ -124,6 +143,8 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
       Keypoint(name: 'nose', x: 0.5, y: 0.15, confidence: 0.95),
       Keypoint(name: 'leftEye', x: 0.45, y: 0.12, confidence: 0.93),
       Keypoint(name: 'rightEye', x: 0.55, y: 0.12, confidence: 0.93),
+      Keypoint(name: 'leftEar', x: 0.40, y: 0.10, confidence: 0.90),
+      Keypoint(name: 'rightEar', x: 0.60, y: 0.10, confidence: 0.90),
 
       // Shoulders
       Keypoint(name: 'leftShoulder', x: 0.35, y: 0.3, confidence: 0.92),
@@ -198,11 +219,19 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
       ),
     ];
 
-    // Detect rep completion
-    if (random > 85 && random < 90) {
-      setState(() {
-        _repCount++;
-      });
+    // Update state machines based on exercise type
+    switch (widget.exerciseType) {
+      case ExerciseType.pushups:
+        _pushupMachine.update(_keypoints);
+        break;
+      case ExerciseType.squats:
+        _squatMachine.update(_keypoints);
+        break;
+      case ExerciseType.jumpingJacks:
+        _jumpingJackMachine.update(_keypoints);
+        break;
+      case ExerciseType.custom:
+        break;
     }
   }
 
@@ -212,20 +241,51 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
         .map((kp) => kp.name)
         .toList();
 
+    // Check upper body form
+    final upperBodyIncorrect = incorrectKeypoints
+        .where(
+          (kp) =>
+              kp.contains('Shoulder') ||
+              kp.contains('Elbow') ||
+              kp.contains('Wrist') ||
+              kp.contains('Eye'),
+        )
+        .toList();
+
+    // Check lower body form
+    final lowerBodyIncorrect = incorrectKeypoints
+        .where(
+          (kp) =>
+              kp.contains('Hip') || kp.contains('Knee') || kp.contains('Ankle'),
+        )
+        .toList();
+
     if (incorrectKeypoints.isEmpty) {
       _formFeedback = 'Perfect form! Keep it up!';
-    } else if (incorrectKeypoints.contains('leftElbow') ||
-        incorrectKeypoints.contains('rightElbow')) {
-      _formFeedback = 'Keep your elbows aligned';
-    } else if (incorrectKeypoints.contains('leftKnee') ||
-        incorrectKeypoints.contains('rightKnee')) {
-      _formFeedback = 'Keep your knees straight';
+    } else if (lowerBodyIncorrect.isNotEmpty && upperBodyIncorrect.isEmpty) {
+      if (lowerBodyIncorrect.any((kp) => kp.contains('Knee'))) {
+        _formFeedback = 'Keep your knees straight';
+      } else if (lowerBodyIncorrect.any((kp) => kp.contains('Ankle'))) {
+        _formFeedback = 'Keep your feet aligned';
+      } else {
+        _formFeedback = 'Adjust your leg position';
+      }
+    } else if (upperBodyIncorrect.isNotEmpty && lowerBodyIncorrect.isEmpty) {
+      if (upperBodyIncorrect.any((kp) => kp.contains('Elbow'))) {
+        _formFeedback = 'Keep your elbows aligned';
+      } else if (upperBodyIncorrect.any((kp) => kp.contains('Shoulder'))) {
+        _formFeedback = 'Keep your shoulders level';
+      } else if (upperBodyIncorrect.any((kp) => kp.contains('Wrist'))) {
+        _formFeedback = 'Keep your wrists straight';
+      } else {
+        _formFeedback = 'Adjust your upper body';
+      }
     } else {
-      _formFeedback = 'Adjust your form';
+      _formFeedback = 'Keep your back straight';
     }
   }
 
-  void _showSessionCompleteDialog() {
+  void _showSessionCompleteDialog(int repCount, int creditsEarned) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -240,7 +300,7 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'Reps: $_repCount',
+                'Reps: $repCount',
                 style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 8),
@@ -250,7 +310,7 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Credits Earned: ${(_repCount ~/ 10).clamp(0, 50)}',
+                'Credits Earned: $creditsEarned',
                 style: const TextStyle(
                   color: Color(0xFF00FF00),
                   fontWeight: FontWeight.bold,
@@ -275,6 +335,9 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
   @override
   void dispose() {
     _stopwatch.stop();
+    if (_isSessionActive) {
+      _timerUpdate.cancel();
+    }
     _cameraController.dispose();
     super.dispose();
   }
@@ -372,7 +435,7 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     Text(
-                      '$_repCount',
+                      '${_getRepCount()}',
                       style: const TextStyle(
                         fontSize: 120,
                         fontWeight: FontWeight.w900,
@@ -492,6 +555,19 @@ class _PoseDetectionScreenState extends State<PoseDetectionScreen> {
         return 'Jumping Jacks';
       case ExerciseType.custom:
         return 'Custom Exercise';
+    }
+  }
+
+  int _getRepCount() {
+    switch (widget.exerciseType) {
+      case ExerciseType.pushups:
+        return _pushupMachine.repCount;
+      case ExerciseType.squats:
+        return _squatMachine.repCount;
+      case ExerciseType.jumpingJacks:
+        return _jumpingJackMachine.repCount;
+      case ExerciseType.custom:
+        return 0;
     }
   }
 }

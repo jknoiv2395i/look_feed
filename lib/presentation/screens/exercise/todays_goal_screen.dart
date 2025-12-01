@@ -31,31 +31,6 @@ class _TodaysGoalScreenState extends State<TodaysGoalScreen> {
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            // Top App Bar
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                  const Text(
-                    "Today's Goal",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.history, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
             // Progress Circle
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),

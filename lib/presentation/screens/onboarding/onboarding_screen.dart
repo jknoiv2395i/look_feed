@@ -1,178 +1,422 @@
 import 'package:flutter/material.dart';
+import '../../../data/services/native_service.dart';
+import '../../providers/niche_provider.dart';
+import 'package:provider/provider.dart';
+import '../niche/niche_selection_screen.dart';
 
-import '../../../app/routes.dart';
-import '../../../app/theme.dart';
-
-class OnboardingScreen extends StatelessWidget {
+class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
 
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+  bool _isInstagramSelected = false;
+  bool _isUsageGranted = false;
+  bool _isAccessibilityGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(_LifecycleObserver(
+      onResume: _checkPermissions,
+    ));
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    final usage = await NativeService().isUsageAccessGranted();
+    final accessibility = await NativeService().isServiceEnabled();
+    if (mounted) {
+      setState(() {
+        _isUsageGranted = usage;
+        _isAccessibilityGranted = accessibility;
+      });
+    }
+  }
+
+  void _nextPage() {
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: const Color(0xFF0F172A), // Dark blue/slate background
       body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          height: MediaQuery.of(context).size.height,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              // Logo and app name
-              Column(
-                children: <Widget>[
-                  Container(
-                    height: 64,
-                    width: 64,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryGreen,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.lock,
-                      size: 32,
-                      color: AppTheme.backgroundDark,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(), // Disable swipe
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                children: [
+                  _buildAppSelectionPage(),
+                  _buildUsagePermissionPage(),
+                  _buildAccessibilityPermissionPage(),
+                ],
+              ),
+            ),
+            _buildBottomBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppSelectionPage() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Let's set up Feed Lock!",
+            style: TextStyle(color: Colors.white54, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Select your most distracting apps",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "You can always change this later in settings.",
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+          const SizedBox(height: 32),
+          if (!_isInstagramSelected)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                  SizedBox(width: 12),
                   Text(
-                    'Feed Lock',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
+                    "No apps configured",
+                    style: TextStyle(color: Colors.white),
                   ),
                 ],
               ),
-              // Main content
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    // Illustration
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      child: AspectRatio(
-                        aspectRatio: 3 / 2,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              image: DecorationImage(
-                                fit: BoxFit.cover,
-                                image: NetworkImage(
-                                  'https://lh3.googleusercontent.com/aida-public/AB6AXuAKI5Ev7zPzMQXmKnxI3ybVRoOe9pprrsjadqeq8MNVl5LOkNb80OxWmA1ZkYEl7lPmOy8oU5AZ3GO1qltTjmO3_stNyGi8sZ6ik-hWoQARbOY76GIDVL2rLZmm_spz5e0EBa4nu_6LY7_qtfWdCJasOuUyer_HL3XKMqQdEKaWx4sjd7mi7_VZHG69ZhplzjmgHQU2OfNAisHc9772VklgrmhKIYwBtrEogagjJuCxI-ZaVukCFCJMxgFlA9buCuRMN3e7NGm1qJp-',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    // Title
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Exercise to Scroll. Filter What You See. Learn What Matters.',
-                        textAlign: TextAlign.center,
+            ),
+          const SizedBox(height: 24),
+          _buildAppToggle(
+            name: "Instagram",
+            icon: Icons.camera_alt, // Placeholder for Instagram icon
+            color: Colors.pink,
+            isSelected: _isInstagramSelected,
+            onChanged: (val) => setState(() => _isInstagramSelected = val),
+          ),
+          // Add more mock apps if needed to look like the screenshot
+          _buildAppToggle(
+            name: "YouTube",
+            icon: Icons.play_arrow,
+            color: Colors.red,
+            isSelected: false,
+            onChanged: (val) {}, // Mock
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppToggle({
+    required String name,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required Function(bool) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Text(
+                  "Daily average of 45 min", // Mock data
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isSelected,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF00FF00),
+            activeTrackColor: const Color(0xFF00FF00).withOpacity(0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsagePermissionPage() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.bar_chart_rounded, size: 80, color: Colors.blue),
+          const SizedBox(height: 24),
+          const Text(
+            "Connect Feed Lock to Usage Data, Securely.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Find Feed Lock in the list and make sure it's switched on.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 16),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_clock, color: Colors.blue),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        "Feed Lock",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          height: 1.2,
-                          letterSpacing: -0.5,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Description
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        child: Text(
-                          'Transform your social media habits into a healthier lifestyle. Link physical activity to screen time and use AI tools to consume content more effectively.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
-                        ),
+                      Text(
+                        "Allow",
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // Action buttons
-              Column(
-                children: <Widget>[
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pushNamed(AppRoutes.register);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          foregroundColor: AppTheme.backgroundDark,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          'Get Started Free',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.15,
-                          ),
-                        ),
-                      ),
-                    ),
+                Switch(
+                  value: _isUsageGranted,
+                  onChanged: (val) async {
+                    await NativeService().openUsageAccessSettings();
+                  },
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
+          ),
+          if (_isUsageGranted)
+             Padding(
+               padding: const EdgeInsets.only(top: 20),
+               child: const Text("Access Granted! ✅", style: TextStyle(color: Colors.green, fontSize: 16)),
+             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccessibilityPermissionPage() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.accessibility_new_rounded, size: 80, color: Color(0xFF00FF00)),
+          const SizedBox(height: 24),
+          const Text(
+            "Enable Feed Filtering",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "1. Tap 'Grant Access'\n2. Find 'Downloaded Apps' or 'Installed Services'\n3. Turn ON 'Feed Lock'",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 16, height: 1.5),
+          ),
+          const SizedBox(height: 48),
+           Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FF00).withOpacity(0.2),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 16),
-                  // Login link
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pushNamed(AppRoutes.login);
-                    },
-                    child: Text.rich(
-                      TextSpan(
-                        text: 'Already have an account? ',
+                  child: const Icon(Icons.filter_list, color: Color(0xFF00FF00)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        "Feed Lock Service",
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
-                        children: <TextSpan>[
-                          TextSpan(
-                            text: 'Log In',
-                            style: TextStyle(
-                              color: AppTheme.primaryGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                      Text(
+                        "Enable",
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+                Switch(
+                  value: _isAccessibilityGranted,
+                  onChanged: (val) async {
+                    await NativeService().openAccessibilitySettings();
+                  },
+                  activeColor: const Color(0xFF00FF00),
+                ),
+              ],
+            ),
+          ),
+           if (_isAccessibilityGranted)
+             Padding(
+               padding: const EdgeInsets.only(top: 20),
+               child: const Text("Service Enabled! ✅", style: TextStyle(color: Colors.green, fontSize: 16)),
+             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: () {
+            if (_currentPage == 0) {
+              if (_isInstagramSelected) {
+                _nextPage();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please select an app to continue")),
+                );
+              }
+            } else if (_currentPage == 1) {
+              if (_isUsageGranted) {
+                _nextPage();
+              } else {
+                 // Optional: Allow skip? Or force? User said "Connect Pushscroll to Usage Data", implying force.
+                 // For better UX, let's force but provide feedback.
+                 NativeService().openUsageAccessSettings();
+              }
+            } else if (_currentPage == 2) {
+              if (_isAccessibilityGranted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NicheSelectionScreen()),
+                );
+              } else {
+                NativeService().openAccessibilitySettings();
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00FF00),
+            foregroundColor: const Color(0xFF1a3a2a),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+          ),
+          child: Text(
+            _getButtonText(),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
       ),
     );
+  }
+
+  String _getButtonText() {
+    if (_currentPage == 0) return "Select Apps";
+    if (_currentPage == 1) return _isUsageGranted ? "Next" : "Grant Usage Access";
+    return _isAccessibilityGranted ? "Get Started" : "Grant Accessibility";
+  }
+}
+
+class _LifecycleObserver extends WidgetsBindingObserver {
+  final VoidCallback onResume;
+  _LifecycleObserver({required this.onResume});
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      onResume();
+    }
   }
 }

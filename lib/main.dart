@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'app/app.dart';
 import 'data/datasources/local/auth_local_datasource.dart';
@@ -17,6 +18,7 @@ import 'presentation/providers/exercise_provider.dart';
 import 'presentation/providers/exercise_stats_provider.dart';
 import 'presentation/providers/summary_provider.dart';
 import 'presentation/providers/feed_provider.dart';
+import 'presentation/providers/niche_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +26,9 @@ Future<void> main() async {
     await dotenv.load();
   } catch (_) {}
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (_) {}
   await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
     DeviceOrientation.portraitUp,
@@ -47,7 +51,7 @@ Future<void> main() async {
     MultiProvider(
       providers: <ChangeNotifierProvider<dynamic>>[
         ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(authRepository: authRepository),
+          create: (_) => AuthProvider(),
         ),
         ChangeNotifierProvider<CreditProvider>(
           create: (_) => CreditProvider()..fetchCredits(),
@@ -65,6 +69,7 @@ Future<void> main() async {
           create: (_) => SummaryProvider(),
         ),
         ChangeNotifierProvider<FeedProvider>(create: (_) => FeedProvider()),
+        ChangeNotifierProvider<NicheProvider>(create: (_) => NicheProvider()),
       ],
       child: const FeedLockApp(),
     ),
